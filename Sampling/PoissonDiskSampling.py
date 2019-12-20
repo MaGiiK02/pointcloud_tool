@@ -1,7 +1,5 @@
-import _vcg_sampling as vcg_s
+import _vcg_tools as vcg_s
 import torch
-import time
-from Utils.helper import time_to_hms_string
 
 class PoissonDiskSampling(object):
 	def __init__(self, num, remove_faces=True, poisson_radius=0.5):

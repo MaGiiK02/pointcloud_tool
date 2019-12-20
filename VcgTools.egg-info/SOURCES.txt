@@ -1,0 +1,6 @@
+setup.py
+./vcg_tools/sampling/pt_vcglib_sampler.cpp
+VcgTools.egg-info/PKG-INFO
+VcgTools.egg-info/SOURCES.txt
+VcgTools.egg-info/dependency_links.txt
+VcgTools.egg-info/top_level.txt

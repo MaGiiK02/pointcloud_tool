@@ -257,6 +257,58 @@ torch::Tensor PoissonDisk(torch::Tensor vertex, torch::Tensor faces, torch::Tens
     return out;
 }
 
+torch::Tensor Montecarlo(torch::Tensor vertex, torch::Tensor faces, torch::Tensor out, unsigned int sampleNum){
+
+    unsigned int numVertex = vertex.size(0);
+    unsigned int numFaces = faces.size(1);
+
+    MyMesh m;
+
+    tri::Allocator<MyMesh>::AddVertices(m, numVertex);
+    for(unsigned int v = 0; v<numVertex; v++){
+        m.vert[v].P()[0] = vertex[v][0].item().toFloat();
+        m.vert[v].P()[1] = vertex[v][1].item().toFloat();
+        m.vert[v].P()[2] = vertex[v][2].item().toFloat();
+    }
+
+    //Add Faces
+    for(unsigned int f = 0; f<numFaces; f++){
+        int p1_index = (int)faces[0][f].item().toFloat();
+        int p2_index = (int)faces[1][f].item().toFloat();
+        int p3_index = (int)faces[2][f].item().toFloat();
+        Allocator<MyMesh>::AddFace(m, &m.vert[p1_index], &m.vert[p2_index], &m.vert[p3_index]);
+    }
+
+    vcg::tri::UpdateBounding<MyMesh>::Box(m);
+
+
+   /***** SAMPLING *****/
+
+	int montecarloSamples = sampleNum;
+
+	MyMesh mm; // new mesh
+
+	// generate montecarlo samples for fast lookup
+	MyMesh *presampledMesh = 0;
+
+	MyMesh MontecarloMesh;
+	presampledMesh = &MontecarloMesh;
+
+	BaseSampler sampler(presampledMesh);
+	tri::SurfaceSampling<MyMesh, BaseSampler>::Montecarlo(m, sampler, montecarloSamples);
+	presampledMesh->bbox = m.bbox; // we want the same bounding box
+
+    //Update Vertex
+    for(int i = 0; i<montecarloSamples; i++){
+        out[i][0] = torch::Scalar(MontecarloMesh.vert[i].P()[0] );
+        out[i][1] = torch::Scalar(MontecarloMesh.vert[i].P()[1] );
+        out[i][2] = torch::Scalar(MontecarloMesh.vert[i].P()[2] );
+    }
+
+    return out;
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("PoissonDisk", &PoissonDisk, "Point sampling using poisson disks");
+    m.def("Montecarlo", &Montecarlo, "Point sampling using Montecarlo");
 }

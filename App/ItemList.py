@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import QWidget, QTreeView, QPushButton, QGridLayout
-from PyQt5.QtGui import QStandardItem, QStandardItemModel
-from PyQt5.QtCore import Qt
+from PyQt5.Qt import Qt, QWidget, QTreeView, QPushButton, QGridLayout, QFileDialog, QStandardItem, QStandardItemModel
 from App.AppState import AppState
+from Data.Loader import Loader
+import os
 
 class ItemList(QWidget):
 
@@ -12,10 +12,12 @@ class ItemList(QWidget):
 		super().__init__()
 
 		self.app_state = AppState()
+		self.app_state.addAddItemListener(self._addItemListener)
 
 		self.model = QStandardItemModel()
 		self.model.setHeaderData(self._ITEM_NAME, Qt.Horizontal, "Name")
 		self.model.setHeaderData(self._OPERATIONS, Qt.Horizontal, "Operations")
+		self.model.itemChanged.connect(self._renameListener)
 		self.initUI()
 
 
@@ -25,6 +27,7 @@ class ItemList(QWidget):
 
 		self.tree_view = QTreeView()
 		self.tree_view.setModel(self.model)
+		self.tree_view.clicked.connect(self._selectedItemListener)
 
 		grid.addWidget(self.tree_view, 0, 0, 19, 1)
 
@@ -32,22 +35,36 @@ class ItemList(QWidget):
 		self.load_data_button.clicked.connect(self._loadDatauttonListener)
 		grid.addWidget(self.load_data_button, 20, 0, 1, 1)
 
+	#Private
+	def _getItemKey(self, item):
+		return self.model.itemData(item)[257]
+
 
 	#Event Handlers
 	def _selectedItemListener(self, event):
-		selection = self.tree_view.selectedIndexes()[0]
-		print(selection)
+		key = self._getItemKey(self.tree_view.currentIndex())
+		self.app_state.setCurrentItem(key)
 
 
 	def _loadDatauttonListener(self):
-		#TODO!!!!!!! Load the real mesh!!! or Pytorch Data!!!
-		data_obj = []
-		obj_index = self.app_state.newIndex()
-		self.app_state.addItem('{}'.format(obj_index), data_obj)
+		file_path, file_types = QFileDialog.getOpenFileName(self,
+			'Open file', os.path.expanduser("~"))
+		if(len(file_path) <= 0 ):
+			return
 
-		item = QStandardItem("NewItem name")
-		item.setData(obj_index) #Set my custom index as a payload
+		item_data = Loader.load(file_path)
+		self.app_state.addItem(item_data)
+
+	#Called when a new item is added to the AppState
+	def _addItemListener(self, key, item_data):
+		item = QStandardItem(item_data.name)
+		item.setData(key)  # Set my custom index as a payload
 		item.setSelectable(True)
 		item.setEditable(True)
 		self.model.appendRow(item)
+
+	def _renameListener(self, item):
+		key = item.data()
+		self.app_state.renameItemAt(key, item.text())
+
 

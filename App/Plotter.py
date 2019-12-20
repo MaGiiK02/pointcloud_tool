@@ -1,10 +1,9 @@
 from App.AppState import AppState
 from Normalization.Normalization import Normalize
+import time
 
-from torch_geometric.data import Data
-import torch
-
-from PyQt5.QtWidgets import QSizePolicy
+from PyQt5.QtWidgets import QSizePolicy, QWidget, QHBoxLayout, QPushButton
+from PyQt5.QtCore import Qt
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
@@ -24,69 +23,41 @@ class Plotter(FigureCanvas):
 		FigureCanvas.__init__(self, self.plot_figure)
 		self.setParent(parent)
 
+		self.normalizer = Normalize()
+
 		FigureCanvas.setSizePolicy(self,
 		   QSizePolicy.Expanding,
 		   QSizePolicy.Expanding)
 		FigureCanvas.updateGeometry(self)
 
-		self.debugDraw()
 
-		self.draw()
-
-	def debugDraw(self):
-		data = Data(pos=torch.rand(100, 3))
-		n = Normalize()
-		data = n(data)
-		pos = data.pos.transpose(0,1)
-
-		axp = self.plot_figure.add_subplot(111,
-							  projection='3d',
-							  xlabel='X',
-							  ylabel='Y',
-							  zlabel='Z',
-							  xlim=[-1.5, 1.5],
-							  ylim=[-1.5, 1.5],
-							  zlim=[-1.5, 1.5]
-							  )
-		axp.scatter(pos[0], pos[1], pos[2], c='r', marker='o')
-
-	def getToolbar(self, parent):
-		return NavigationToolbar(self.plot_figure, parent)
-
-
-	def defaultPointCloudRender(self, item, fig):
-		data = Normalize(item.data)
-		pos = data.pos
-
-		axp = fig.add_subplot(111,
+		self.limit_x = self.limit_y = self.limit_z = [-1,1]
+		self.current_plot = self.plot_figure.add_subplot(
+			111,
 			projection='3d',
+			xlim=self.limit_x,
+			ylim=self.limit_y,
+			zlim=self.limit_z,
 			xlabel='X',
 			ylabel='Y',
-			zlabel='Z',
-			xlim=[-1.5, 1.5],
-			ylim=[-1.5, 1.5],
-			zlim=[-1.5, 1.5]
-			)
-		axp.scatter(pos[0], pos[1], pos[2], c='r', marker='o')
-
-	def defaultMeshRender(self, item, fig):
-		data = Normalize(item.data)
-		points = data.pos
-		faces = data.faces
-
-		mx = points.max(axis=0)
-		c = 0.5 * (mx + points.min(axis=0))
-		r = 1.1 * np.max(mx - c)
-		xlim, ylim, zlim = np.column_stack([c - r, c + r])
-		ax = fig.add_subplot(111,
-			   projection='3d',
-			   xlim=xlim,
-			   ylim=ylim,
-			   zlim=zlim,
-			   xlabel='X',
-			   ylabel='Y',
-			   zlabel='Z'
+			zlabel='Z'
 		)
+		self.current_plot.view_init(azim=30)
+
+	def defaultPointCloudRender(self, item, ax):
+		data = self.normalizer(item.data)
+		pos = data.pos.transpose(0,1)
+
+		ax.scatter(pos[0], pos[1], pos[2], c='r', marker='.')
+
+		data.pos.transpose(0, 1)
+
+		return ax
+
+	def defaultMeshRender(self, item, ax):
+		data = self.normalizer(item.data)
+		points = data.pos.numpy()
+		faces = data.face.transpose(0,1).numpy()
 
 		sym = dict(
 			points=None,
@@ -106,15 +77,30 @@ class Plotter(FigureCanvas):
 			poly = Poly3DCollection(v, edgecolor=sym['edges'], facecolor=sym['faces'])
 			ax.add_collection(poly)
 
+		return ax
+
 
 	def updateRender(self, item, render):
 		if(render is None):
-			render = self.defaultMeshRender() if item.type == 'Mesh' else self.defaultPointCloudRender()
+			render = self.defaultMeshRender if item.type == 'Mesh' else self.defaultPointCloudRender
 
-		self.plot_figure.clear()
-		if(item.data is None):
-			return
-		render(item, self.plot_figure)
-		self.draw()
+		if(item is None or item.data is None):
+			return None
 
+		self.current_plot.cla()
+		self.current_plot.set_xlim(self.limit_x)
+		self.current_plot.set_ylim(self.limit_y)
+		self.current_plot.set_zlim(self.limit_z)
+
+		render(item, self.current_plot)
+		self.draw_idle()
+
+	def reset(self):
+		self.limit_x = self.limit_y = self.limit_z = [-1, 1]
+		self.current_plot.set_xlim(self.limit_x)
+		self.current_plot.set_ylim(self.limit_y)
+		self.current_plot.set_zlim(self.limit_z)
+		self.current_plot.view_init(azim=30)
+
+		self.draw_idle()
 

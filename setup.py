@@ -9,10 +9,10 @@ _ext_src_root = "./vcg_tools/sampling"
 _ext_sources_sampling = glob.glob("{}/*.cpp".format(_ext_src_root))
 
 setup(
-	name='_VcgTools',
+	name='VcgTools',
 	ext_modules=[
 		CppExtension(
-			name='_vcg_sampling',
+			name='_vcg_tools',
 			sources=_ext_sources_sampling,
 			extra_compile_args=['-g', '-I./vcg/eigenlib', '-I./vcg/wrap', '-I./vcg'])
 	],
